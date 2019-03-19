@@ -5,22 +5,21 @@
       <input
         type="range"
         min="0"
-        :max="inputPrj.max_val"
+        :max="inputObj.max_val"
         value="0"
         class="slider"
         id="myRange"
         v-model="slide_val"
-        v-if="inputPrj.control_type=='slider'"
+        v-if="inputObj.control_type=='slider'"
       >
-      <div id="output" v-if="inputPrj.display_value">{{slide_val}}</div>
-      <div class="btn_container">
+      <div id="output" v-if="inputObj.display_value">{{slide_val}}</div>
+      <div class="btn_container" v-if="inputObj.control_type=='buttons'">
         <div
-          v-for="(n,index) in inputPrj.button_labels"
+          v-for="(n,index) in inputObj.button_labels"
           :key="n"
           class="slide_btn"
           :class="{'activeBtn':button==n}"
           @click="change_face(index+1)"
-          v-if="inputPrj.control_type=='buttons'"
         >{{n}}</div>
       </div>
     </center>
@@ -28,11 +27,11 @@
 </template>
 <script>
 import SVG from "svg.js";
-import { close } from "fs";
+import { close, closeSync } from "fs";
 export default {
   data() {
     return {
-      inputPrj,
+      inputObj,
       SVGinput,
       slide_val: 0,
       intervals: 4,
@@ -57,7 +56,7 @@ export default {
 
   mounted() {
     $(".mrNext").addClass("disabled");
-    this.slide_val = this.inputPrj.max_val / 2;
+    this.slide_val = this.inputObj.max_val / 2;
     this.canvas = SVG("drawing").viewbox(0, 0, 500, 500);
     for (var i = 0; i < Object.keys(this.SVGinput.input_path).length; i++) {
       //drawing path shapes
@@ -118,6 +117,24 @@ export default {
             id: "object" + i
           });
       }
+      if (this.SVGinput.input_type[i] == "text") {
+        this.path_objects[i] = this.canvas
+          .text(this.SVGinput.input_path[i][0].split(",")[3])
+          .attr({
+            "stroke-width":
+              this.SVGinput.input_border[i].split("*")[0] != ""
+                ? this.SVGinput.input_border[i].split("*")[0]
+                : 0,
+            stroke:
+              this.SVGinput.input_border[i].split("*")[1] != ""
+                ? this.SVGinput.input_border[i].split("*")[1]
+                : "black",
+            x: this.SVGinput.input_path[i][0].split(",")[0],
+            y: this.SVGinput.input_path[i][0].split(",")[1],
+            "font-size": this.SVGinput.input_path[i][0].split(",")[2],
+            id: "object" + i
+          });
+      }
     }
 
     // this.path_objects[99] = this.canvas.circle(50);
@@ -140,7 +157,7 @@ export default {
       var temp;
       var min;
       this.button = x;
-      this.slide_val = (this.inputPrj.max_val / this.intervals) * (x - 1);
+      this.slide_val = (this.inputObj.max_val / this.intervals) * (x - 1);
 
       // console.log("in change", this.previous_val, this.slide_val);
       this.animate(this.previous_val);
@@ -172,7 +189,7 @@ export default {
     },
     animate(x) {
       // console.log("in animate for:", x, this.previous_val);
-      var int_size = this.inputPrj.max_val / this.intervals;
+      var int_size = this.inputObj.max_val / this.intervals;
       var int_number = 0;
       var int_poz = parseInt(x);
       while (int_poz > int_size) {
@@ -261,10 +278,52 @@ export default {
 
       this.rotate_all(this.slide_val);
       this.previous_val = x;
+      this.change_colors(int_number, int_poz);
+    },
+    change_colors(int_number, int_poz) {
+      // console.log("in change:", int_number, int_poz);
+      for (var i = 0; i < Object.keys(this.SVGinput.input_path).length; i++) {
+        if (this.SVGinput.input_colors[i].type == "rainbow") {
+          var array_colors = this.SVGinput.input_colors[i].color.split("*");
+          var poz1,
+            poz2,
+            dif,
+            correction = [];
+
+          for (var j = 0; j < 4; j++) {
+            poz1 = array_colors[int_number].split(",")[j];
+            poz2 = array_colors[int_number + 1].split(",")[j];
+            dif = poz2 - poz1;
+            correction[j] =
+              (dif / (this.inputObj.max_val / this.intervals)) * int_poz;
+          }
+          var temp_red =
+              parseInt(array_colors[int_number].split(",")[0]) +
+              parseInt(correction[0]),
+            temp_green = 0,
+            temp_blue = 0,
+            temp_opac = 1;
+          this.path_objects[i].fill(
+            "rgba(" +
+              (parseInt(array_colors[int_number].split(",")[0]) +
+                parseInt(correction[0])) +
+              "," +
+              (parseInt(array_colors[int_number].split(",")[1]) +
+                parseInt(correction[1])) +
+              "," +
+              (parseInt(array_colors[int_number].split(",")[2]) +
+                parseInt(correction[2])) +
+              "," +
+              (parseInt(array_colors[int_number].split(",")[3]) +
+                parseFloat(correction[3])) +
+              ")"
+          );
+        }
+      }
     },
     calc_difference(val1, val2, int_poz) {
       return (
-        ((val1 - val2) / (this.inputPrj.max_val / this.intervals)) * int_poz
+        ((val1 - val2) / (this.inputObj.max_val / this.intervals)) * int_poz
       );
     },
     recalculate_path(i, int_number, int_poz) {
@@ -302,13 +361,13 @@ export default {
       for (var i = 0; i < Object.keys(this.SVGinput.input_path).length; i++) {
         if (this.SVGinput.input_rotate[i]) {
           var element = document.getElementById("object" + i);
-          var temp_val = parseInt(this.inputPrj.max_val);
+          var temp_val = parseInt(this.inputObj.max_val);
           do {
             temp_val = temp_val / 10;
           } while (temp_val > 100);
           element.setAttribute(
             "transform",
-            "rotate(" + (this.inputPrj.max_val / 2 - x) / temp_val + ",250,0) "
+            "rotate(" + (this.inputObj.max_val / 2 - x) / temp_val + ",250,0) "
           );
         }
       }
@@ -396,6 +455,9 @@ export default {
             }
 
             this.path_objects[i].fill(radial);
+            break;
+          case "rainbow":
+            this.path_objects[i].fill("black");
             break;
           default:
             // console.log(i, "other type");
@@ -636,5 +698,8 @@ label {
 }
 .mrEdit {
   display: none !important;
+}
+.slider {
+  box-sizing: content-box !important;
 }
 </style>  

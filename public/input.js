@@ -1,4 +1,4 @@
-var inputPrj = {
+var inputObj = {
   control_type: "slider", //buttons slider
   display_value: true,
   max_val: 100,
