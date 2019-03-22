@@ -689,17 +689,3 @@ input[type="range"]:focus::-ms-fill-upper {
   max-height: 40vh;
 }
 </style>
-<style>
-label {
-  width: 100%;
-}
-.question {
-  padding-bottom: 10px;
-}
-.mrEdit {
-  display: none !important;
-}
-.slider {
-  box-sizing: content-box !important;
-}
-</style>  
